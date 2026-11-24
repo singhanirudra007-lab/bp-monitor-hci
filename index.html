@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart BP Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #EFF4FB;
+    --device-bg: #FFFFFF;
+    --screen-bg: #0D1B2A;
+    --screen-border: #1C3A5C;
+    --teal: #00BCD4;
+    --teal-light: #B2EBF2;
+    --green: #2ECC71;
+    --green-dark: #1a8a4a;
+    --yellow: #F39C12;
+    --red: #E74C3C;
+    --text-primary: #1A2B3C;
+    --text-muted: #6B8299;
+    --shadow: 0 20px 60px rgba(0,0,0,0.12), 0 6px 20px rgba(0,0,0,0.08);
+    --btn-shadow: 0 4px 15px rgba(0,188,212,0.4);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 30px 16px 60px;
+    background-image: radial-gradient(circle at 20% 20%, #C8E6FF55 0%, transparent 50%),
+                      radial-gradient(circle at 80% 80%, #B2EBF255 0%, transparent 50%);
+  }
+
+  h1.app-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.4rem;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+    letter-spacing: -0.5px;
+  }
+  .app-subtitle {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    margin-bottom: 28px;
+  }
+
+  /* ── DEVICE SHELL ── */
+  .device {
+    background: linear-gradient(160deg, #FFFFFF 0%, #EAF0F8 100%);
+    border-radius: 32px;
+    box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,0.9);
+    padding: 28px 24px 28px;
+    width: 100%;
+    max-width: 420px;
+    position: relative;
+    border: 1.5px solid rgba(255,255,255,0.9);
+  }
+
+  .device::before {
+    content: '';
+    position: absolute;
+    top: -1px; left: 50%; transform: translateX(-50%);
+    width: 80px; height: 4px;
+    background: linear-gradient(90deg, var(--teal), #0088AA);
+    border-radius: 0 0 4px 4px;
+  }
+
+  /* ── SCREEN ── */
+  .screen {
+    background: var(--screen-bg);
+    border-radius: 20px;
+    padding: 20px;
+    border: 2px solid var(--screen-border);
+    box-shadow: inset 0 2px 10px rgba(0,0,0,0.4), 0 0 0 4px rgba(0,188,212,0.08);
+    min-height: 280px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .screen::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0,188,212,0.5), transparent);
+  }
+
+  /* status bar */
+  .status-bar {
+    position: absolute;
+    top: 10px; left: 14px; right: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.68rem;
+    color: rgba(255,255,255,0.35);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); display: inline-block; animation: pulse-dot 2s infinite; }
+  @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* ── SCREEN CONTENT VIEWS ── */
+  .view { display: none; flex-direction: column; align-items: center; width: 100%; animation: fadeIn 0.4s ease; }
+  .view.active { display: flex; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+  /* IDLE VIEW */
+  .idle-icon { font-size: 3.5rem; margin-bottom: 12px; filter: drop-shadow(0 0 12px rgba(0,188,212,0.4)); }
+  .idle-title { font-family: 'Space Grotesk', sans-serif; font-size: 1.4rem; color: #FFFFFF; margin-bottom: 6px; }
+  .idle-sub { font-size: 0.85rem; color: rgba(255,255,255,0.5); text-align: center; line-height: 1.5; }
+
+  /* GUIDE STEPS */
+  .guide-step { width: 100%; }
+  .step-badge { background: var(--teal); color: #fff; font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; margin-bottom: 10px; display: inline-block; letter-spacing: 0.5px; }
+  .step-title { font-family: 'Space Grotesk', sans-serif; font-size: 1.5rem; color: #FFFFFF; margin-bottom: 10px; line-height: 1.25; }
+  .step-desc { font-size: 1rem; color: rgba(255,255,255,0.7); line-height: 1.6; margin-bottom: 14px; }
+  .step-visual { width: 100%; border-radius: 12px; background: rgba(0,188,212,0.1); border: 1px solid rgba(0,188,212,0.25); padding: 14px; display: flex; align-items: center; gap: 12px; }
+  .step-visual .icon { font-size: 2.2rem; }
+  .step-visual .tip { font-size: 0.82rem; color: rgba(255,255,255,0.6); line-height: 1.5; }
+  .step-visual .tip strong { color: var(--teal); }
+
+  /* CUFF ERROR */
+  .error-icon { font-size: 3rem; margin-bottom: 10px; animation: shake 0.5s ease; }
+  @keyframes shake { 0%,100%{transform:rotate(0deg)} 20%{transform:rotate(-6deg)} 40%{transform:rotate(6deg)} 60%{transform:rotate(-4deg)} 80%{transform:rotate(4deg)} }
+  .error-title { font-family: 'Space Grotesk', sans-serif; font-size: 1.4rem; color: #FF6B6B; margin-bottom: 6px; }
+  .error-msg { font-size: 0.9rem; color: rgba(255,255,255,0.65); text-align: center; line-height: 1.6; margin-bottom: 14px; }
+  .error-tip-box { background: rgba(255,107,107,0.12); border: 1px solid rgba(255,107,107,0.3); border-radius: 12px; padding: 12px 14px; width: 100%; }
+  .error-tip-box p { font-size: 0.82rem; color: rgba(255,255,255,0.7); line-height: 1.5; }
+  .error-tip-box strong { color: #FF9A9A; }
+
+  /* MEASURING */
+  .measure-title { font-family: 'Space Grotesk', sans-serif; font-size: 1.2rem; color: var(--teal); margin-bottom: 18px; }
+  .measure-ring { width: 110px; height: 110px; position: relative; margin-bottom: 16px; }
+  .measure-ring svg { width: 110px; height: 110px; transform: rotate(-90deg); }
+  .measure-ring .track { fill: none; stroke: rgba(0,188,212,0.15); stroke-width: 8; }
+  .measure-ring .progress { fill: none; stroke: var(--teal); stroke-width: 8; stroke-linecap: round; stroke-dasharray: 283; stroke-dashoffset: 283; animation: measure-progress 4s ease forwards; }
+  @keyframes measure-progress { to { stroke-dashoffset: 0; } }
+  .measure-ring .center-text { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .measure-ring .pct { font-family: 'IBM Plex Mono', monospace; font-size: 1.6rem; font-weight: 600; color: #fff; }
+  .measure-ring .pct-label { font-size: 0.62rem; color: rgba(255,255,255,0.4); letter-spacing: 1px; }
+  .measure-hint { font-size: 0.82rem; color: rgba(255,255,255,0.45); text-align: center; }
+
+  /* RESULT */
+  .result-header { font-size: 0.78rem; color: rgba(255,255,255,0.4); letter-spacing: 2px; margin-bottom: 14px; text-transform: uppercase; }
+  .bp-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; width: 100%; margin-bottom: 16px; }
+  .bp-cell { background: rgba(255,255,255,0.05); border-radius: 12px; padding: 10px 8px; text-align: center; border: 1px solid rgba(255,255,255,0.07); }
+  .bp-cell .label { font-size: 0.65rem; color: rgba(255,255,255,0.4); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 4px; }
+  .bp-cell .val { font-family: 'IBM Plex Mono', monospace; font-size: 1.9rem; font-weight: 600; line-height: 1; }
+  .bp-cell .unit { font-size: 0.6rem; color: rgba(255,255,255,0.35); margin-top: 2px; }
+  .val.green { color: var(--green); }
+  .val.yellow { color: var(--yellow); }
+  .val.red { color: var(--red); }
+  .val.blue { color: var(--teal); }
+
+  /* STATUS BANNER */
+  .status-banner { width: 100%; border-radius: 12px; padding: 12px 14px; display: flex; align-items: flex-start; gap: 10px; }
+  .status-banner.normal { background: rgba(46,204,113,0.12); border: 1px solid rgba(46,204,113,0.3); }
+  .status-banner.elevated { background: rgba(243,156,18,0.12); border: 1px solid rgba(243,156,18,0.3); }
+  .status-banner.high { background: rgba(231,76,60,0.12); border: 1px solid rgba(231,76,60,0.3); }
+  .status-banner.very-high { background: rgba(192,57,43,0.15); border: 1px solid rgba(192,57,43,0.4); }
+  .banner-icon { font-size: 1.6rem; flex-shrink: 0; margin-top: 2px; }
+  .banner-text .bname { font-weight: 700; font-size: 0.95rem; margin-bottom: 2px; }
+  .banner-text .bname.green { color: var(--green); }
+  .banner-text .bname.yellow { color: var(--yellow); }
+  .banner-text .bname.red { color: #FF6B6B; }
+  .banner-text .badvice { font-size: 0.78rem; color: rgba(255,255,255,0.6); line-height: 1.5; }
+
+  /* ── BUTTONS ── */
+  .controls { display: flex; gap: 12px; margin-top: 20px; width: 100%; max-width: 420px; }
+  .btn {
+    flex: 1; border: none; border-radius: 16px; padding: 18px 12px;
+    font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: 700;
+    cursor: pointer; transition: all 0.2s ease; position: relative; overflow: hidden;
+    letter-spacing: 0.2px;
+  }
+  .btn::after { content: ''; position: absolute; inset: 0; background: rgba(255,255,255,0); transition: 0.2s; }
+  .btn:hover::after { background: rgba(255,255,255,0.08); }
+  .btn:active { transform: scale(0.97); }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #00BCD4, #0088AA);
+    color: #fff;
+    box-shadow: var(--btn-shadow);
+  }
+  .btn-secondary {
+    background: rgba(255,255,255,0.7);
+    color: var(--text-primary);
+    border: 1.5px solid rgba(0,0,0,0.08);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .btn-danger {
+    background: linear-gradient(135deg, #E74C3C, #C0392B);
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(231,76,60,0.35);
+  }
+  .btn-green {
+    background: linear-gradient(135deg, #2ECC71, #1a8a4a);
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(46,204,113,0.35);
+  }
+  .btn-icon { font-size: 1.2rem; display: block; margin-bottom: 2px; }
+  .btn-label { font-size: 0.72rem; font-weight: 400; opacity: 0.75; display: block; margin-top: 2px; }
+
+  /* ── VOICE INDICATOR ── */
+  .voice-bar {
+    margin-top: 16px;
+    background: rgba(0,188,212,0.07);
+    border: 1px solid rgba(0,188,212,0.15);
+    border-radius: 12px;
+    padding: 10px 14px;
+    display: flex; align-items: center; gap: 10px;
+    width: 100%; max-width: 420px;
+    font-size: 0.85rem; color: var(--text-muted);
+  }
+  .voice-bar .speaker { font-size: 1.2rem; }
+  .voice-waves { display: flex; align-items: center; gap: 3px; }
+  .wave { width: 3px; border-radius: 3px; background: var(--teal); animation: wave-anim 1s ease infinite; }
+  .wave:nth-child(1){height:8px;animation-delay:0s}
+  .wave:nth-child(2){height:14px;animation-delay:0.15s}
+  .wave:nth-child(3){height:10px;animation-delay:0.3s}
+  .wave:nth-child(4){height:16px;animation-delay:0.1s}
+  .wave:nth-child(5){height:8px;animation-delay:0.25s}
+  @keyframes wave-anim { 0%,100%{transform:scaleY(1)} 50%{transform:scaleY(0.4)} }
+
+  /* ── STEP DOTS ── */
+  .step-dots { display: flex; gap: 8px; margin-top: 14px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(0,188,212,0.2); transition: 0.3s; }
+  .dot.active { background: var(--teal); transform: scale(1.3); }
+  .dot.done { background: rgba(0,188,212,0.5); }
+
+  /* ── BP SCALE BAR ── */
+  .scale-bar { width: 100%; margin: 10px 0 4px; }
+  .scale-track { width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(90deg, #2ECC71 0%, #2ECC71 35%, #F39C12 35%, #F39C12 55%, #E74C3C 55%, #C0392B 100%); position: relative; }
+  .scale-marker { position: absolute; top: -3px; width: 12px; height: 12px; border-radius: 50%; background: #fff; border: 2px solid #fff; box-shadow: 0 0 0 2px rgba(0,0,0,0.3); transition: left 0.6s ease; transform: translateX(-50%); }
+  .scale-labels { display: flex; justify-content: space-between; margin-top: 5px; }
+  .scale-labels span { font-size: 0.62rem; color: rgba(255,255,255,0.35); font-family: 'IBM Plex Mono', monospace; }
+
+  /* ── HISTORY CHIPS ── */
+  .history-row { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; width: 100%; max-width: 420px; }
+  .hist-chip { background: rgba(255,255,255,0.7); border: 1px solid rgba(0,0,0,0.08); border-radius: 20px; padding: 5px 12px; font-size: 0.75rem; color: var(--text-muted); box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+  .hist-chip strong { color: var(--text-primary); }
+
+  /* ── DEVICE SIDE BUTTON ── */
+  .side-btn { position: absolute; right: -4px; top: 50%; transform: translateY(-50%); width: 8px; height: 50px; background: #D0DCE8; border-radius: 0 6px 6px 0; border: 1px solid #C0CDD8; }
+
+  /* ── DEVICE LABEL ── */
+  .device-label { text-align: center; margin-top: 10px; font-size: 0.7rem; color: var(--text-muted); letter-spacing: 2px; text-transform: uppercase; }
+
+  /* ── SOUND TOGGLE ── */
+  .sound-toggle {
+    margin: -14px 0 18px; border: 1.5px solid rgba(0,188,212,0.35);
+    background: rgba(255,255,255,0.8); color: var(--text-primary);
+    font-family: 'DM Sans', sans-serif; font-size: 0.78rem; font-weight: 700;
+    letter-spacing: 1px; padding: 8px 18px; border-radius: 20px; cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .sound-toggle:hover { background: #fff; box-shadow: 0 2px 10px rgba(0,188,212,0.25); }
+  .sound-toggle.off { color: var(--text-muted); border-color: rgba(0,0,0,0.12); }
+</style>
+</head>
+<body>
+
+<h1 class="app-title">Smart BP Monitor</h1>
+<p class="app-subtitle">Blood Pressure Measurement System — Redesigned for HCI</p>
+<button class="sound-toggle" id="sound-toggle" onclick="toggleSound()">SOUND: ON</button>
+
+<div class="device">
+  <div class="side-btn"></div>
+
+  <!-- SCREEN -->
+  <div class="screen" id="screen">
+    <div class="status-bar">
+      <span><span class="status-dot"></span> READY</span>
+      <span id="clock">--:--</span>
+      <span>BAT 87%</span>
+    </div>
+
+    <!-- VIEW: IDLE -->
+    <div class="view active" id="view-idle">
+      <div class="idle-title">Blood Pressure Monitor</div>
+      <div class="idle-sub">Press <strong style="color:var(--teal)">START</strong> to begin<br>your measurement</div>
+    </div>
+
+    <!-- VIEW: STEP 1 - Position arm -->
+    <div class="view" id="view-step1">
+      <div class="guide-step">
+        <span class="step-badge">STEP 1 OF 3</span>
+        <div class="step-title">Sit Comfortably</div>
+        <div class="step-desc">Rest for 5 minutes. Keep your back straight and feet flat on the floor.</div>
+        <div class="step-visual">
+          <div class="tip"><strong>Important:</strong> Do not talk or move during measurement. Rest your arm on a flat surface.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW: STEP 2 - Wrap cuff -->
+    <div class="view" id="view-step2">
+      <div class="guide-step">
+        <span class="step-badge">STEP 2 OF 3</span>
+        <div class="step-title">Wrap Cuff Correctly</div>
+        <div class="step-desc">Place the cuff on your <strong style="color:var(--teal)">bare arm</strong>, 2 cm above the elbow.</div>
+        <div class="step-visual">
+          <div class="tip"><strong>Keep arm at heart level.</strong> The cuff should be snug — you should fit <em>one finger</em> underneath.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW: STEP 3 - Stay still -->
+    <div class="view" id="view-step3">
+      <div class="guide-step">
+        <span class="step-badge">STEP 3 OF 3</span>
+        <div class="step-title">Stay Still & Relax</div>
+        <div class="step-desc">The device will inflate the cuff. Stay calm and breathe normally.</div>
+        <div class="step-visual">
+          <div class="tip"><strong>Don't hold your breath.</strong> The cuff will tighten briefly — this is normal.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW: CUFF ERROR -->
+    <div class="view" id="view-error">
+      <div class="error-icon" style="font-size:2rem;font-weight:900;color:#FF6B6B;margin-bottom:8px;">!</div>
+      <div class="error-title">Placement Issue</div>
+      <div class="error-msg">The cuff does not seem to be placed correctly. Please adjust and try again.</div>
+      <div class="error-tip-box">
+        <p>+ <strong>Place cuff on bare arm</strong> 2 cm above elbow<br>
+           + <strong>Keep arm at heart level</strong><br>
+           + <strong>Do not cross legs</strong> or move during test</p>
+      </div>
+    </div>
+
+    <!-- VIEW: MEASURING -->
+    <div class="view" id="view-measuring">
+      <div class="measure-title">Measuring…</div>
+      <div class="measure-ring">
+        <svg viewBox="0 0 110 110">
+          <circle class="track" cx="55" cy="55" r="45"/>
+          <circle class="progress" id="prog-circle" cx="55" cy="55" r="45"/>
+        </svg>
+        <div class="center-text">
+          <span class="pct" id="pct-text">0%</span>
+          <span class="pct-label">DONE</span>
+        </div>
+      </div>
+      <div class="measure-hint">Keep still. Do not talk.</div>
+    </div>
+
+    <!-- VIEW: RESULT -->
+    <div class="view" id="view-result">
+      <div class="result-header">Your Results</div>
+      <div class="bp-grid" id="bp-grid">
+        <!-- filled by JS -->
+      </div>
+      <div class="scale-bar">
+        <div class="scale-track"><div class="scale-marker" id="scale-marker" style="left:30%"></div></div>
+        <div class="scale-labels"><span>NORMAL</span><span>ELEVATED</span><span>HIGH</span></div>
+      </div>
+      <div class="status-banner" id="status-banner">
+        <!-- filled by JS -->
+      </div>
+    </div>
+  </div><!-- /screen -->
+
+  <!-- VOICE BAR -->
+  <div class="voice-bar" id="voice-bar">
+    <span class="speaker" style="font-size:0.75rem;font-weight:700;color:var(--teal);letter-spacing:1px;">VOL</span>
+    <div class="voice-waves">
+      <div class="wave"></div><div class="wave"></div><div class="wave"></div>
+      <div class="wave"></div><div class="wave"></div>
+    </div>
+    <span id="voice-text">Welcome. Press Start to measure your blood pressure.</span>
+  </div>
+
+</div><!-- /device -->
+
+<!-- STEP DOTS -->
+<div class="step-dots" id="step-dots">
+  <div class="dot" id="d0"></div>
+  <div class="dot" id="d1"></div>
+  <div class="dot" id="d2"></div>
+  <div class="dot" id="d3"></div>
+  <div class="dot" id="d4"></div>
+</div>
+
+<!-- CONTROLS -->
+<div class="controls" id="controls">
+  <!-- filled by JS -->
+</div>
+
+<!-- HISTORY -->
+<div class="history-row" id="history-row"></div>
+
+<p class="device-label">HCI Redesign · BP Monitor v2</p>
+
+<script>
+/* ═══════════════ SOUND ENGINE (Web Audio, no files needed) ═══════════════ */
+const SFX = (() => {
+  let ctx = null, master = null, on = true, meas = null;
+
+  function unlock() {               // must be called from a user click
+    if (!on) return;
+    if (!ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      ctx = new AC();
+      master = ctx.createGain();
+      master.gain.value = 0.6;
+      master.connect(ctx.destination);
+    }
+    if (ctx.state === 'suspended') ctx.resume();
+  }
+
+  function tone(freq, delay, dur, type, vol, slideTo, dest) {
+    const t = ctx.currentTime + delay;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol || 0.2, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(dest || master);
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+
+  function noiseBuffer() {
+    const len = ctx.sampleRate * 2;
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    return buf;
+  }
+
+  /* Button presses — each action has its own voice */
+  const clicks = {
+    start:  () => { tone(520, 0, 0.10, 'sine', 0.22); tone(780, 0.09, 0.15, 'sine', 0.22); },
+    next:   () => tone(660, 0, 0.09, 'sine', 0.20),
+    back:   () => tone(440, 0, 0.09, 'sine', 0.18),
+    cancel: () => tone(520, 0, 0.18, 'sine', 0.20, 300),
+    retry:  () => { tone(500, 0, 0.07, 'triangle', 0.20); tone(500, 0.11, 0.07, 'triangle', 0.20); },
+    help:   () => tone(880, 0, 0.08, 'sine', 0.18)
+  };
+  function click(name) {
+    if (!ctx || !on) return;
+    (clicks[name] || clicks.next)();
+  }
+
+  /* Screen changes */
+  function state(s) {
+    if (!ctx || !on) return;
+    if (s === 'step1' || s === 'step2' || s === 'step3') {
+      tone(988, 0.12, 0.28, 'sine', 0.12);            // soft guide chime
+    } else if (s === 'error') {
+      tone(220, 0.10, 0.18, 'sawtooth', 0.12);         // error buzzer
+      tone(170, 0.32, 0.30, 'sawtooth', 0.12);
+    }
+  }
+
+  /* Measuring: pump motor -> air release hiss -> pulse beeps */
+  function pump() {
+    if (!ctx || !on) return;
+    stopPump();
+    const t = ctx.currentTime;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.6, t + 0.2);
+    g.connect(master);
+    meas = g;
+
+    // pump motor with chugging rhythm, pitch rises as cuff inflates
+    const motor = ctx.createOscillator(); motor.type = 'sawtooth';
+    motor.frequency.setValueAtTime(55, t);
+    motor.frequency.linearRampToValueAtTime(120, t + 2.4);
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 380;
+    const mg = ctx.createGain(); mg.gain.value = 0.35;
+    const lfo = ctx.createOscillator(); lfo.frequency.value = 9;
+    const lg = ctx.createGain(); lg.gain.value = 0.2;
+    lfo.connect(lg); lg.connect(mg.gain);
+    motor.connect(lp); lp.connect(mg); mg.connect(g);
+    motor.start(t); lfo.start(t);
+    motor.stop(t + 2.5); lfo.stop(t + 2.5);
+
+    // slow air release while the cuff deflates
+    const n = ctx.createBufferSource(); n.buffer = noiseBuffer();
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2500;
+    const ng = ctx.createGain();
+    ng.gain.setValueAtTime(0.0001, t + 2.6);
+    ng.gain.exponentialRampToValueAtTime(0.14, t + 2.75);
+    ng.gain.exponentialRampToValueAtTime(0.0001, t + 4.1);
+    n.connect(hp); hp.connect(ng); ng.connect(g);
+    n.start(t + 2.6); n.stop(t + 4.2);
+
+    // pulse-detected beeps
+    [2.9, 3.5, 4.0].forEach(d => tone(1000, d, 0.06, 'sine', 0.16, null, g));
+  }
+
+  function stopPump() {
+    if (!ctx || !meas) return;
+    const g = meas; meas = null;
+    try {
+      const now = ctx.currentTime;
+      g.gain.cancelScheduledValues(now);
+      g.gain.setValueAtTime(Math.max(0.0001, g.gain.value), now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+    } catch (e) {}
+  }
+
+  /* Result jingle depends on how healthy the reading is */
+  function result(cls) {
+    if (!ctx || !on) return;
+    if (cls === 'normal') {
+      [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.12, 0.32, 'sine', 0.20));
+    } else if (cls === 'elevated') {
+      tone(659, 0, 0.22, 'sine', 0.20);
+      tone(587, 0.24, 0.32, 'sine', 0.20);
+    } else if (cls === 'high') {
+      [0, 0.28, 0.56].forEach(d => tone(740, d, 0.18, 'square', 0.09));
+    } else {
+      [0, 0.32, 0.64].forEach(d => {
+        tone(880, d, 0.15, 'square', 0.09);
+        tone(660, d + 0.16, 0.15, 'square', 0.09);
+      });
+    }
+  }
+
+  function toggle() {
+    on = !on;
+    if (on) { unlock(); click('next'); } else { stopPump(); }
+    return on;
+  }
+
+  return { unlock, click, state, pump, stopPump, result, toggle };
+})();
+
+function toggleSound() {
+  const on = SFX.toggle();
+  const b = document.getElementById('sound-toggle');
+  b.textContent = 'SOUND: ' + (on ? 'ON' : 'OFF');
+  b.classList.toggle('off', !on);
+}
+
+const STATES = ['idle','step1','step2','step3','error','measuring','result'];
+let currentState = 'idle';
+let measureTimer = null;
+let pctInterval = null;
+const readings = [];
+
+// Demo scenarios cycle
+const DEMOS = [
+  {sys:118, dia:76, pul:72},
+  {sys:128, dia:83, pul:78},
+  {sys:142, dia:92, pul:85},
+  {sys:162, dia:104, pul:91},
+];
+let demoIdx = 0;
+
+function setState(s) {
+  currentState = s;
+  SFX.state(s);
+  STATES.forEach(v => {
+    const el = document.getElementById('view-' + v);
+    if (el) el.classList.remove('active');
+  });
+  const target = document.getElementById('view-' + s);
+  if (target) target.classList.add('active');
+  updateControls();
+  updateDots();
+  updateVoice();
+}
+
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+const VOICES = {
+  idle: 'Welcome. Press Start to measure your blood pressure.',
+  step1: 'Step 1. Sit comfortably and rest for 5 minutes.',
+  step2: 'Step 2. Wrap the cuff on your bare arm, two centimetres above the elbow.',
+  step3: 'Step 3. Stay still and breathe normally.',
+  error: 'Warning. Cuff placement issue detected. Please adjust the cuff and try again.',
+  measuring: 'Measuring your blood pressure. Please do not move.',
+  result: ''
+};
+
+function updateVoice(custom) {
+  document.getElementById('voice-text').textContent = custom || VOICES[currentState] || '';
+}
+
+function updateDots() {
+  const map = {idle:0, step1:1, step2:2, step3:3, measuring:3, error:2, result:4};
+  const cur = map[currentState] ?? 0;
+  for(let i=0;i<5;i++){
+    const d = document.getElementById('d'+i);
+    d.className = 'dot' + (i===cur?' active':i<cur?' done':'');
+  }
+}
+
+function updateControls() {
+  const c = document.getElementById('controls');
+  c.innerHTML = '';
+
+  const mk = (label, icon, cls, fn, sublabel='') => {
+    const b = document.createElement('button');
+    b.className = 'btn ' + cls;
+    b.innerHTML = `<span class="btn-icon">${icon}</span>${label}${sublabel?`<span class="btn-label">${sublabel}</span>`:''}`;
+    const soundMap = {
+      'START':'start', 'START MEASURING':'start', 'NEW READING':'start',
+      'NEXT':'next', 'BACK':'back', 'HOME':'back',
+      'CANCEL':'cancel', 'TRY AGAIN':'retry', 'HELP':'help'
+    };
+    b.onclick = () => { SFX.unlock(); SFX.click(soundMap[label]); fn(); };
+    return b;
+  };
+
+  if(currentState === 'idle'){
+    c.appendChild(mk('START', '▶', 'btn-primary', ()=>setState('step1'), 'Begin measurement'));
+  } else if(currentState === 'step1'){
+    c.appendChild(mk('NEXT', '→', 'btn-primary', ()=>setState('step2'), 'Wrap cuff'));
+    c.appendChild(mk('CANCEL', '✕', 'btn-secondary', ()=>setState('idle'), ''));
+  } else if(currentState === 'step2'){
+    c.appendChild(mk('NEXT', '→', 'btn-primary', checkCuff, 'Check placement'));
+    c.appendChild(mk('BACK', '←', 'btn-secondary', ()=>setState('step1'), ''));
+  } else if(currentState === 'step3'){
+    c.appendChild(mk('START MEASURING', '▶', 'btn-primary', startMeasuring, 'Begin now'));
+    c.appendChild(mk('BACK', '←', 'btn-secondary', ()=>setState('step2'), ''));
+  } else if(currentState === 'error'){
+    c.appendChild(mk('TRY AGAIN', '↺', 'btn-danger', ()=>setState('step2'), 'Fix placement'));
+    c.appendChild(mk('HELP', '?', 'btn-secondary', showHelp, 'Instructions'));
+  } else if(currentState === 'measuring'){
+    c.appendChild(mk('CANCEL', '✕', 'btn-secondary', ()=>{
+      clearTimeout(measureTimer); clearInterval(pctInterval);
+      SFX.stopPump();
+      setState('idle');
+    }, 'Stop'));
+  } else if(currentState === 'result'){
+    c.appendChild(mk('NEW READING', '↺', 'btn-primary', ()=>{demoIdx=(demoIdx+1)%DEMOS.length;setState('step1');}, ''));
+    c.appendChild(mk('HOME', '←', 'btn-secondary', ()=>setState('idle'), ''));
+  }
+}
+
+function checkCuff() {
+  // 1 in 3 chance of error to simulate detection
+  const err = (demoIdx === 1); // demo scenario 2 triggers error for demo purposes
+  if(err && !checkCuff._bypassed){
+    checkCuff._bypassed = true;
+    setState('error');
+  } else {
+    checkCuff._bypassed = false;
+    setState('step3');
+  }
+}
+checkCuff._bypassed = false;
+
+function startMeasuring() {
+  setState('measuring');
+  SFX.pump();
+  // Reset animation
+  const circle = document.getElementById('prog-circle');
+  circle.style.animation = 'none';
+  circle.offsetHeight; // reflow
+  circle.style.animation = 'measure-progress 4s ease forwards';
+
+  let pct = 0;
+  pctInterval = setInterval(()=>{
+    pct = Math.min(100, pct + 4);
+    document.getElementById('pct-text').textContent = pct + '%';
+    if(pct >= 100) clearInterval(pctInterval);
+  }, 160);
+
+  measureTimer = setTimeout(showResult, 4200);
+}
+
+function showResult() {
+  const reading = DEMOS[demoIdx % DEMOS.length];
+  const {sys, dia, pul} = reading;
+  readings.unshift({sys, dia, pul, time: new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})});
+  if(readings.length > 5) readings.pop();
+
+  // Classify
+  let cls, label, icon, advice;
+  const markerLeft = Math.min(96, Math.max(4, ((sys - 90) / 100) * 100));
+
+  if(sys < 120 && dia < 80){
+    cls='normal'; label='NORMAL'; icon='';
+    advice='Your blood pressure is healthy! Keep up your good lifestyle — regular exercise, balanced diet, and low salt intake.';
+  } else if(sys < 130 && dia < 80){
+    cls='elevated'; label='ELEVATED'; icon='';
+    advice='Your BP is slightly elevated. Consider reducing salt and stress. Monitor regularly and consult your doctor if this persists.';
+  } else if(sys < 140 || dia < 90){
+    cls='high'; label='HIGH — Stage 1'; icon='';
+    advice='Your BP is high. Please consult a doctor soon. Avoid heavy exertion. Reduce salt, caffeine, and stress.';
+  } else {
+    cls='very-high'; label='HIGH — Stage 2'; icon='';
+    advice='Your BP is dangerously high. Please seek medical attention immediately. Do not ignore this reading.';
+  }
+
+  // Color logic
+  const sysCol = sys<120?'green':sys<130?'green':sys<140?'yellow':'red';
+  const diaCol = dia<80?'green':dia<90?'yellow':'red';
+
+  document.getElementById('bp-grid').innerHTML = `
+    <div class="bp-cell">
+      <div class="label">SYS</div>
+      <div class="val ${sysCol}">${sys}</div>
+      <div class="unit">mmHg</div>
+    </div>
+    <div class="bp-cell">
+      <div class="label">DIA</div>
+      <div class="val ${diaCol}">${dia}</div>
+      <div class="unit">mmHg</div>
+    </div>
+    <div class="bp-cell">
+      <div class="label">PULSE</div>
+      <div class="val blue">${pul}</div>
+      <div class="unit">bpm</div>
+    </div>
+  `;
+
+  document.getElementById('scale-marker').style.left = markerLeft + '%';
+
+  document.getElementById('status-banner').className = 'status-banner ' + cls;
+  document.getElementById('status-banner').innerHTML = `
+    <div class="banner-text">
+      <div class="bname ${cls==='normal'?'green':cls==='elevated'?'yellow':'red'}">${label}</div>
+      <div class="badvice">${advice}</div>
+    </div>
+  `;
+
+  const voiceMsg = `Your blood pressure is ${sys} over ${dia}. ${label.replace('—','stage')}. ${advice}`;
+  SFX.stopPump();
+  setState('result');
+  SFX.result(cls);
+  updateVoice(voiceMsg);
+  renderHistory();
+}
+
+function renderHistory() {
+  const hr = document.getElementById('history-row');
+  hr.innerHTML = '';
+  if(readings.length===0) return;
+  const label = document.createElement('div');
+  label.style.cssText = 'width:100%;font-size:0.7rem;color:var(--text-muted);margin-bottom:4px;letter-spacing:1px';
+  label.textContent = 'RECENT READINGS';
+  hr.appendChild(label);
+  readings.slice(0,4).forEach(r=>{
+    const chip = document.createElement('div');
+    chip.className = 'hist-chip';
+    const cls = r.sys<120?'#2ECC71':r.sys<130?'#F39C12':'#E74C3C';
+    chip.innerHTML = `<strong style="color:${cls}">${r.sys}/${r.dia}</strong> · ${r.pul}bpm · ${r.time}`;
+    hr.appendChild(chip);
+  });
+}
+
+function showHistory() {
+  if(readings.length === 0){
+    updateVoice('No readings yet. Press Start to take your first measurement.');
+  } else {
+    renderHistory();
+    updateVoice(`Your last reading was ${readings[0].sys} over ${readings[0].dia}.`);
+  }
+}
+
+function showHelp() {
+  updateVoice('For cuff placement: wrap the cuff on your bare arm, two centimetres above the elbow. Keep your arm at heart level and sit still.');
+}
+
+// Init
+setState('idle');
+</script>
+</body>
+</html>
